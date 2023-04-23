@@ -16,11 +16,11 @@ from tkinter import Canvas, PhotoImage, Button, filedialog, messagebox
 import numpy as np
 import cv2
 from PIL import Image
-import xml.etree.ElementTree as ET
 import platform
 import os
 from typing import List
 import typing
+from helper import validate_xml, parse_points, get_files
 
 Mat: typing.TypeAlias = 'np.ndarray[int, np.dtype[np.generic]]'
 
@@ -97,6 +97,7 @@ After UV : {self.after_uv_svg_path}"
         self.input_tex_path = filedialog.askdirectory()
         self.toggle_execute()
         canvas.itemconfig(text_item, text=self.get_path_text())
+
     def select_before_uv_svg_file(self):
         path = get_path(self.master, "Select Before UV SVG File", [("SVG files", "*.svg")])
         self.before_uv_svg_path = path
@@ -105,12 +106,13 @@ After UV : {self.after_uv_svg_path}"
             self.before_uv_svg_polygons = ""
             canvas.itemconfig(text_item, text=self.get_path_text())
             return 
-        if not UVcageTex.validate_xml(path) :
+        if not validate_xml(path) :
             messagebox.showinfo("svg format error", "Select the svg you exported from blender\nSVGのフォーマットが正しくありません。blenderのUVエディタからエクスポートしたsvgを使用してください")
             return
         
-        self.before_uv_svg_polygons = len(UVcageTex.parse_points(path , 1, 1))
+        self.before_uv_svg_polygons = len(parse_points(path , 1, 1))
         canvas.itemconfig(text_item, text=self.get_path_text())
+
     def select_after_uv_svg_file(self):
         path = get_path(self.master, "Select After UV SVG File", [("SVG files", "*.svg")])
         self.after_uv_svg_path = path
@@ -119,94 +121,19 @@ After UV : {self.after_uv_svg_path}"
             self.after_uv_svg_polygons = ""
             canvas.itemconfig(text_item, text=self.get_path_text())
             return 
-        if not UVcageTex.validate_xml(path) :
+        if not validate_xml(path) :
             messagebox.showinfo("svg format error", "Select the svg you exported from blender\nSVGのフォーマットが正しくありません。blenderのUVエディタからエクスポートしたsvgを使用してください")
             return
         
-        self.after_uv_svg_polygons = len(UVcageTex.parse_points(path , 1, 1))
+        self.after_uv_svg_polygons = len(parse_points(path , 1, 1))
         canvas.itemconfig(text_item, text=self.get_path_text())
-
-    @staticmethod
-    def validate_xml(path: str) -> bool:
-        try:
-            # XMLをパースして、ルート要素を取得する
-            tree = ET.parse(path)
-            root = tree.getroot()
-        
-            # ルート要素を検証する
-            if root.tag != "{http://www.w3.org/2000/svg}svg":
-                return False
-            if "width" not in root.attrib or "height" not in root.attrib:
-                return False
-        
-            # 子要素を検証する
-            for child in root:
-                if child.tag != "{http://www.w3.org/2000/svg}desc" and child.tag != "{http://www.w3.org/2000/svg}polygon":
-                    return False
-                if child.tag == "{http://www.w3.org/2000/svg}polygon":
-                    if "stroke" not in child.attrib or "stroke-width" not in child.attrib or "fill" not in child.attrib or "points" not in child.attrib:
-                        return False
-        
-            polygons = UVcageTex.parse_points(path , 1, 1)
-            if len(polygons) == 0 :
-                return False
-        except Exception:
-            return False
-
-        return True
-
-    @staticmethod
-    def polygon_to_triangles(polygon):
-        triangles = []
-        for i in range(1, len(polygon) - 1):
-            triangle = [polygon[0], polygon[i], polygon[i+1]]
-            triangles.append(triangle)
-        return triangles
-
-    @staticmethod
-    def parse_points(file_path: str, width: int, height: int) -> np.ndarray:
-        """
-        SVG ファイルからポリゴンを読み込み、ポリゴンの頂点データを計算して返す。
-        """
-        # SVG ファイルを解析して ElementTree オブジェクトを取得
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-        # SVG の幅・高さを取得
-        svg_width = root.attrib["width"]
-        svg_height = root.attrib["height"]
-        # 解像度に対する SVG の比率を計算
-        ratio_x = int(width) / int(svg_width)
-        ratio_y = int(height) / int(svg_height)
-        polygons = []
-        namespace = {"svg": "http://www.w3.org/2000/svg"}
-        # 各ポリゴンに対して以下の処理を行う
-        for i, polygon in enumerate(root.findall("svg:polygon", namespace)):
-            # 座標文字列を数値リストに変換
-            points_str = polygon.get("points")
-            points = [list(map(float, point.split(","))) for point in points_str.split()]
-            # ポリゴンの重心を計算
-            x_coords, y_coords = zip(*points)
-            cx = sum(x_coords) / len(x_coords)
-            cy = sum(y_coords) / len(y_coords)
-            # 重心を中心とした座標系に変換し、解像度に合わせて拡大縮小する
-            expanded_points = [[
-                ((x - cx)  * 1 + cx) * ratio_x,
-                ((y - cy) * 1 + cy) * ratio_y
-            ] for x, y in points]
-            # ポリゴンの頂点数が 3 以上の場合、三角形に分割する
-            if len(expanded_points) > 3:
-                expanded_points = UVcageTex.polygon_to_triangles(expanded_points)
-                for triangle in expanded_points:
-                    polygons.append(triangle)
-            else:
-                polygons.append(expanded_points)
-        # ポリゴンの頂点データを返す
-        return np.array(polygons, dtype=np.float32)
 
     def execute_cpu(self):
         return self.execute(False)
+
     def execute_gpu(self):
         return self.execute(True)
+
     def execute(self, use_gpu):
         if not self.is_enable() :
             messagebox.showinfo("message", "Required selection not made\n必要な選択が行われていません")
@@ -219,7 +146,7 @@ After UV : {self.after_uv_svg_path}"
             messagebox.showinfo("message", "Selected folder does not exist\n選択したフォルダーが存在しません")
             return
 
-        entries = UVcageTex.get_files(self.input_tex_path)
+        entries = get_files(self.input_tex_path)
         if 0 == len(entries) :
             messagebox.showinfo("message", "JPG/PNG does not exist in the selected folder\n選択したフォルダーにJPG/PNGが存在しません")
             return
@@ -243,26 +170,13 @@ After UV : {self.after_uv_svg_path}"
             )
         messagebox.showinfo(title, message)
 
-    @staticmethod
-    def get_files(input_tex_dir):
-        # ディレクトリ内のフォルダエントリを取得
-        entries = []
-        with os.scandir(input_tex_dir) as files:
-            for file in files:
-                # 画像ファイルである場合のみ処理する
-                if not file.is_file() or file.name.lower().endswith((".png", ".jpg", ".jpeg")) is False:
-                    continue
-                else :
-                    entries.append(file.path)
-        return entries
-
     def transform_image(self, input_tex_dir: str, before_uv_svg_path: str, after_uv_svg_path: str, use_gpu: bool) -> tuple:
         output_tex_dir = os.path.join(input_tex_dir, "output")
         if not os.path.exists(output_tex_dir):
             os.mkdir(output_tex_dir)
 
         # フォルダ内の画像ファイルのパスを取得
-        entries = UVcageTex.get_files(input_tex_dir)
+        entries = get_files(input_tex_dir)
 
         # 進行状況バーの作成
         root = tk.Tk()
@@ -271,8 +185,8 @@ After UV : {self.after_uv_svg_path}"
         progress.pack(pady=10)
 
         # SVGのポリゴンをパース
-        b = UVcageTex.parse_points(before_uv_svg_path, 1, 1)
-        a = UVcageTex.parse_points(after_uv_svg_path, 1, 1)
+        b = parse_points(before_uv_svg_path, 1, 1)
+        a = parse_points(after_uv_svg_path, 1, 1)
 
         # ポリゴン数が等しくない場合は終了する
         if len(b) != len(a) :
@@ -293,8 +207,8 @@ After : {len(a)}"
             output_tex_path = os.path.join(output_tex_dir, "new_" + os.path.splitext(file_name)[0] + ".png")
 
             # スケールを考慮してSVGポリゴンをパース
-            src = UVcageTex.parse_points(before_uv_svg_path, width, height)
-            dst = UVcageTex.parse_points(after_uv_svg_path, width, height)
+            src = parse_points(before_uv_svg_path, width, height)
+            dst = parse_points(after_uv_svg_path, width, height)
 
             # import time
             # start = time.time()
@@ -388,7 +302,7 @@ def on_closing():
 
 if __name__ == "__main__":
     window = tk.Tk()
-    app = UVcageTex(window)
+    uv_cage_tex = UVcageTex(window)
     window.geometry("400x558")
     window.title("UVcageTex")    
     window.configure(bg = "#3d3d3d")
@@ -418,7 +332,7 @@ if __name__ == "__main__":
         bg="#545454",
         borderwidth = 0,
         highlightthickness = 0,
-        command = app.select_input_tex_file,
+        command = uv_cage_tex.select_input_tex_file,
         relief = "flat")
     ui_tex_button.place(
         x = 24, y = 83,
@@ -434,7 +348,7 @@ if __name__ == "__main__":
         bg="#545454",
         borderwidth = 0,
         highlightthickness = 0,
-        command = app.select_before_uv_svg_file,
+        command = uv_cage_tex.select_before_uv_svg_file,
         relief = "flat")
     ui_after_button.place(
         x = 24, y = 131,
@@ -450,7 +364,7 @@ if __name__ == "__main__":
         bg="#545454",
         borderwidth = 0,
         highlightthickness = 0,
-        command = app.select_after_uv_svg_file,
+        command = uv_cage_tex.select_after_uv_svg_file,
         relief = "flat")
     ui_before_button.place(
         x = 204, y = 131,
@@ -467,7 +381,7 @@ if __name__ == "__main__":
         fill = "#ffffff",
         anchor="nw",
         justify="left",
-        text=app.get_path_text(),
+        text=uv_cage_tex.get_path_text(),
         width=338
     )
 
@@ -480,7 +394,7 @@ if __name__ == "__main__":
     ui_start_button = Button(
         borderwidth = 0,
         highlightthickness = 0,
-        command = app.execute_cpu,
+        command = uv_cage_tex.execute_cpu,
         relief = "flat")
     ui_start_button.place(
         x = 24, y = 436,
@@ -496,14 +410,14 @@ if __name__ == "__main__":
     # ui_start_gpu_button = Button(
     #     borderwidth = 0,
     #     highlightthickness = 0,
-    #     command = app.execute_gpu,
+    #     command = uv_cage_tex.execute_gpu,
     #     relief = "flat")
 
     # ui_start_gpu_button.place(
     #     x = 24, y = 484,
     #     width = 352,
     #     height = 35)
-    app.toggle_execute()
+    uv_cage_tex.toggle_execute()
 
     canvas.create_text(
         395, 549,

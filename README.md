@@ -15,7 +15,7 @@ UVcageTexはblenderで作成したUVマップの座標を元にテクスチャ�
 
 |GUI|Instructions|
 |:----|:----|
-|![image](https://user-images.githubusercontent.com/124477558/233797106-be389e97-cc99-4f02-bfb8-b3aec03c9d14.png)|<b># Select folder with Textture JPG or PNG</b><br>変形したいテクスチャ（jpg or png）のディレクトリを指定します。画像は複数可。<br><br><b># Before UV SVG & After UV SVG</b><br>変更前(Before)と変更後(After)UVを設定します。<br><br>* データ形式：SVG</b><br>SVGはBlenderのUVエディタからエクスポートしたSVGが対象。<br>他ツールで編集・保存したSVGは動作対象外。<br><br>* ポリゴン<br>三角ポリゴン数を一致させて、UV座標のみ動かしたSVGを設定してください。<br>追加・削除・分割等が行われたものは動作しません。<br><br><b># START</b><br>上記の操作後に変形処理が実行できます。<br>処理時間はCPU性能・三角ポリゴン数・テクスチャ解像度およびファイル数に依存します。|
+|![image](https://user-images.githubusercontent.com/124477558/233797106-be389e97-cc99-4f02-bfb8-b3aec03c9d14.png)|<b># Select folder with Texture JPG or PNG</b><br>変形したいテクスチャ（jpg or png）のディレクトリを指定します。画像は複数可。<br><br><b># Before UV SVG & After UV SVG</b><br>変更前(Before)と変更後(After)UVを設定します。<br><br>* データ形式：SVG</b><br>SVGはBlenderのUVエディタからエクスポートしたSVGが対象。<br>他ツールで編集・保存したSVGは動作対象外。<br><br>* ポリゴン<br>三角ポリゴン数を一致させて、UV座標のみ動かしたSVGを設定してください。<br>追加・削除・分割等が行われたものは動作しません。<br><br><b># START</b><br>上記の操作後に変形処理が実行できます。<br>処理時間はCPU性能・三角ポリゴン数・テクスチャ解像度およびファイル数に依存します。|
 <br>
 
 ### Download
